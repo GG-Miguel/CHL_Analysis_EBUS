@@ -34,7 +34,7 @@ chl_mean = chl.mean(dim="time").values
 plot_mean_chl_map(lon, lat_2d, chl_mean, savepath="figures/Fig1_mean_map.png")
 print("Saved: figures/Fig1_mean_map.png")
 
-# --- Fig 2: Patch overlays with 4 thresholds (P85=yellow, P90=olive, P95=orange, P99=red) ---
+# --- Fig 2: Patch overlays with 4 thresholds ---
 for ey in [2003, 2010, 2020]:
     yearly = chl.sel(time=str(ey))
     vals = yearly.values
@@ -116,7 +116,7 @@ for i, p in enumerate(THRESHOLD_PCTS):
 ax.axhline(0, color="#666666", linewidth=0.4)
 ax.set_xticks(xpos + width * 1.5)
 ax.set_xticklabels([labels_map[m] for m in metrics_list], fontsize=5, rotation=20, ha="right")
-ax.set_ylabel("Theil–Sen slope (yr⁻¹)", fontsize=6)
+ax.set_ylabel("Theil–Sen slope (per decade)", fontsize=6)
 ax.legend(frameon=False, fontsize=5, ncol=4, loc="upper left")
 ax.tick_params(labelsize=5)
 plt.tight_layout()

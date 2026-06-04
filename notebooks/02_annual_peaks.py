@@ -3,6 +3,9 @@
 Uses the 99th percentile per timestep to avoid single-pixel outliers.
 Adds Theil–Sen + Mann–Kendall trend tests on both peak intensity
 (`chl_peak`) and peak timing (`peak_doy`, circular variable).
+
+All slopes are reported per decade (× 10 over the per-year rate),
+using the actual calendar year as the x-axis.
 """
 
 import matplotlib
@@ -44,23 +47,28 @@ print(df.head(10))
 print(f"\nchl_peak range: {df.chl_peak.min():.4f} – {df.chl_peak.max():.4f} mg/m³")
 print(f"peak_doy range: {df.peak_doy.min()} – {df.peak_doy.max()} (DOY)")
 
-# --- Trend tests ---
-ts_peak = theil_sen_with_ci(df["chl_peak"])
-mk_peak = mann_kendall(df["chl_peak"])
-circ_peak = circular_doy_trend(df["peak_doy"])
+# --- Trend tests (use the actual calendar year as x) ---
+years_arr = df["year"].astype(float).values
+ts_peak = theil_sen_with_ci(df["chl_peak"], x=years_arr)
+mk_peak = mann_kendall(df["chl_peak"], x=years_arr)
+circ_peak = circular_doy_trend(df["peak_doy"], x=years_arr)
 
-print("\n=== chl_peak trend ===")
-print(f"  Theil–Sen slope:  {ts_peak['slope']:.4f} mg/m³ per yr  "
+print("\n=== chl_peak trend (per decade) ===")
+print(f"  Theil–Sen slope:  {ts_peak['slope_per_decade']:.4f} mg/m³ per decade  "
+      f"[{ts_peak['slope_lo_per_decade']:.4f}, {ts_peak['slope_hi_per_decade']:.4f}]")
+print(f"  Per year:         {ts_peak['slope']:.4f} mg/m³/yr  "
       f"[{ts_peak['slope_lo']:.4f}, {ts_peak['slope_hi']:.4f}]")
+print(f"  Value at year {int(years_arr[0])}:  {ts_peak['intercept_at_x0']:.4f} mg/m³")
 print(f"  % per decade:     {ts_peak['slope_pct_per_decade']:.2f} %")
 print(f"  Mann–Kendall:     τ={mk_peak['tau']:.3f}, p={mk_peak['p_value']:.4g}, "
       f"trend={mk_peak['trend']} ({p_value_to_stars(mk_peak['p_value'])})")
 
-print("\n=== peak_doy trend (circular) ===")
+print("\n=== peak_doy trend (circular, per decade) ===")
 print(f"  Mean direction:   {circ_peak['mean_direction_deg']:.1f}° (i.e. DOY "
-      f"{circ_peak['mean_direction_deg']*365.0/360.0:.0f})")
-print(f"  Drift:            {circ_peak['drift_deg_per_year']:.2f}° per yr "
-      f"(= {circ_peak['drift_deg_per_year']*365.0/360.0:.2f} DOY/yr)")
+      f"{circ_peak['mean_doy']:.0f})")
+print(f"  Drift:            {circ_peak['drift_deg_per_decade']:.2f}°/decade "
+      f"(= {circ_peak['drift_doy_per_decade']:.2f} DOY/decade)")
+print(f"  Per year:         {circ_peak['drift_deg_per_year']:.2f}°/yr")
 print(f"  Rayleigh p:       {circ_peak['rayleigh_p']:.4g}")
 
 # --- Two-panel figure ---
@@ -70,9 +78,9 @@ fig, axes = plt.subplots(2, 1, figsize=(3.5, 3.2), sharex=True)
 ax = axes[0]
 ax.plot(df.year, df.chl_peak, "o-", linewidth=0.5, color="steelblue",
         markerfacecolor="white", markeredgewidth=0.4, markeredgecolor="steelblue", markersize=3)
-trend_line = ts_peak["intercept"] + ts_peak["slope"] * np.arange(len(df))
+trend_line = ts_peak["intercept"] + ts_peak["slope"] * years_arr
 ax.plot(df.year, trend_line, "--", color="#d55e00", linewidth=0.5,
-        label=f"slope={ts_peak['slope']:.3f}/yr ({p_value_to_stars(mk_peak['p_value'])})")
+        label=f"{ts_peak['slope_per_decade']:.3f}/decade ({p_value_to_stars(mk_peak['p_value'])})")
 ax.set_ylabel("Annual P99 peak Chl-a (mg m⁻³)")
 ax.legend(frameon=False, fontsize=5, loc="upper left")
 ax.tick_params(labelsize=6)
@@ -81,8 +89,7 @@ ax.tick_params(labelsize=6)
 ax = axes[1]
 ax.plot(df.year, df.peak_doy, "o-", linewidth=0.5, color="#7f4f9a",
         markerfacecolor="white", markeredgewidth=0.4, markeredgecolor="#7f4f9a", markersize=3)
-# Plot circular fit: mean direction + drift in DOY
-mean_doy = circ_peak["mean_direction_deg"] * 365.0 / 360.0
+mean_doy = circ_peak["mean_doy"]
 ax.axhline(mean_doy, color="#d55e00", linewidth=0.5, linestyle="--",
            label=f"mean DOY ≈ {mean_doy:.0f}")
 ax.set_ylabel("Peak day-of-year")

@@ -30,18 +30,30 @@ a manuscript.
 
 ## Statistical methodology
 
-All trend tests live in `src/statistics/significance.py`:
+All trend tests live in `src/statistics/significance.py`. Every
+function accepts an optional `x` argument (the time coordinate in years,
+e.g. `df.year.astype(float)`). The original time coordinate is
+`datetime64[ns]` at 8-day cadence; we aggregate to annual values
+(`np.unique(chl.time.dt.year)`) and pass those years as `x` so the
+slopes are reported in "units of y per year" and the per-decade values
+are simply `× 10`.
 
-* **`theil_sen_with_ci(y)`** — Theil–Sen slope with 95% confidence
-  interval. `slope_pct_per_decade = 100 × (slope / median(y)) × 10`,
-  the relative change per decade in the units of `y`.
-* **`mann_kendall(y)`** — Two-sided Mann–Kendall test (Hamed & Rao 1998
-  variance correction is applied automatically when ties are present).
-  Returns τ, z, p, and a trend label.
-* **`circular_doy_trend(peak_doy)`** — For circular variables like
-  day-of-year. Converts DOY to an angle, fits Theil–Sen independently on
-  cos θ and sin θ, and reports the mean direction, drift magnitude in
-  degrees/year, and a Rayleigh p-value.
+* **`theil_sen_with_ci(y, x=None)`** — Theil–Sen slope with 95% confidence
+  interval. Returns both per-year (`slope`) and per-decade
+  (`slope_per_decade`, `slope_lo_per_decade`, `slope_hi_per_decade`)
+  versions. The intercept is rebased to the first x value
+  (`intercept_at_x0`) for interpretability. `slope_pct_per_decade` is
+  `100 × (slope_per_decade / median(y))`.
+* **`mann_kendall(y, x=None)`** — Two-sided Mann–Kendall test (Hamed &
+  Rao 1998 variance correction is applied automatically when ties are
+  present). Returns τ, z, p, a trend label, and the per-year /
+  per-decade Theil–Sen slope (re-computed with `x` so the units are
+  correct).
+* **`circular_doy_trend(peak_doy, x=None)`** — For circular variables
+  like day-of-year. Converts DOY to an angle, fits Theil–Sen
+  independently on cos θ and sin θ, and reports the mean direction
+  (`mean_doy`), drift magnitude in `degrees/decade` and `DOY/decade`,
+  and a Rayleigh p-value.
 * **`bootstrap_patch_metrics(chl_2d, area_2d, percentile, n_boot=200)`**
   — Pixel-level bootstrap (with replacement) of the per-year patch
   metrics. Returns 95% CIs on the threshold, area, mean Chl, etc.
@@ -51,7 +63,7 @@ All trend tests live in `src/statistics/significance.py`:
 Convenience: `src/statistics/trends.py` keeps the legacy
 `theil_sen_trend` API as a thin wrapper and exposes
 `trend_summary_table(df, year_col, value_cols)` for building wide
-significance tables.
+significance tables (per-decade `slope` as the headline column).
 
 ---
 
@@ -185,18 +197,21 @@ working versions produced by each notebook step.
 
 ## Headline findings (Canary EBUS, 2002–2025, MODIS-Aqua L3b 8-day)
 
-* **Annual P99 peak intensity** shows a non-significant positive trend
-  (+0.07 mg m⁻³/yr, MK p=0.41).
-* **Per-year peak day-of-year** has a small drift (~1.3 DOY/yr) but the
+All trend values are reported **per decade**. Re-run `python run_all.py`
+to refresh.
+
+* **Annual P99 peak intensity** has a non-significant positive trend
+  (+0.65 mg m⁻³/decade, MK p=0.41).
+* **Per-year peak day-of-year** drifts by ~13 DOY/decade but the
   Rayleigh test is non-significant (no preferred season in the drift
   direction).
-* **Per-year seasonal amplitude** is essentially flat (+0.003 mg m⁻³/yr,
-  MK p=0.75).
+* **Per-year seasonal amplitude** is essentially flat
+  (+0.030 mg m⁻³/decade, MK p=0.75).
 * **At the P99 threshold**, the *largest patch* has shrunk significantly
-  over 2002–2025 (−459 km²/yr, MK p=0.027, *).
+  over 2002–2025 (−4590 km²/decade, MK p=0.027, *).
 * **At the P90 threshold**, the *number of patches* has increased
-  significantly (+3.3 patches/yr, MK p=0.047, *), consistent with the
-  largest-patch contraction: the high-Chl area is fragmenting rather
+  significantly (+32.7 patches/decade, MK p=0.047, *), consistent with
+  the largest-patch contraction: the high-Chl area is fragmenting rather
   than shifting in magnitude.
 * All other metric × threshold combinations are not significant
   (p > 0.05) over the 24-year record.

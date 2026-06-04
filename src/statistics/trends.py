@@ -2,9 +2,9 @@
 Trend-analysis helpers (back-compat wrapper layer).
 
 All new significance work lives in :mod:`src.statistics.significance`.
-The functions here are thin shims that keep the legacy `theil_sen_trend`
-and `ols_ar1_trend` API alive while delegating to the new module, and add
-a `trend_summary_table` helper used by the trend notebook.
+The functions here are thin shims that keep the legacy ``theil_sen_trend``
+and ``ols_ar1_trend`` API alive while delegating to the new module, and
+add a ``trend_summary_table`` helper used by the trend notebook.
 """
 
 from __future__ import annotations
@@ -19,27 +19,31 @@ from src.statistics.significance import (
 )
 
 
-def theil_sen_trend(y: pd.Series) -> dict:
+def theil_sen_trend(y: pd.Series, x=None) -> dict:
     """
-    Back-compat wrapper. Returns the legacy schema used by the rest of
-    the pipeline: slope, intercept, p_value (Mann–Kendall), and a
-    correctly-computed `slope_pct_per_decade`.
+    Back-compat wrapper. The headline ``slope`` is now **per decade**
+    (matching the user-facing climate reporting convention); the raw
+    per-year slope and CIs are kept as ``slope_per_year`` / ``slope_lo``
+    / ``slope_hi`` for back-compat.
     """
-    ts = theil_sen_with_ci(y)
-    mk = mann_kendall(y)
+    ts = theil_sen_with_ci(y, x=x)
+    mk = mann_kendall(y, x=x)
     return {
-        "slope": ts["slope"],
-        "intercept": ts["intercept"],
+        "slope": ts["slope_per_decade"],
+        "slope_per_year": ts["slope"],
+        "intercept": ts["intercept_at_x0"],
         "p_value": mk["p_value"],
         "slope_pct_per_decade": ts["slope_pct_per_decade"],
-        "slope_lo": ts["slope_lo"],
-        "slope_hi": ts["slope_hi"],
+        "slope_lo": ts["slope_lo_per_decade"],
+        "slope_hi": ts["slope_hi_per_decade"],
+        "slope_lo_per_year": ts["slope_lo"],
+        "slope_hi_per_year": ts["slope_hi"],
         "n": ts["n"],
     }
 
 
 def ols_ar1_trend(y: pd.Series) -> dict:
-    """OLS with Newey–West (HAC) standard errors, lag-1."""
+    """OLS with Newey–West (HAC) standard errors, lag-1. Per year."""
     import statsmodels.api as sm
 
     x = np.arange(len(y))
@@ -61,21 +65,29 @@ def trend_summary_table(df: pd.DataFrame, year_col: str, value_cols: list[str]) 
     """
     Build a wide significance table.
 
-    For each column in `value_cols`, run Theil–Sen + Mann–Kendall and
-    return one row with: metric, slope, slope_lo, slope_hi,
-    slope_pct_per_decade, mk_tau, mk_p, mk_trend, stars, n.
+    The headline ``slope`` column is the **per-decade** Theil–Sen slope
+    (the value to cite in the manuscript). The per-year slope and the
+    95% confidence intervals on both scalings are included as well.
+
+    For each column in ``value_cols``, returns one row with:
+        metric, slope (per decade), slope_per_year, intercept_at_x0,
+        slope_lo (per decade), slope_hi (per decade),
+        slope_pct_per_decade,
+        mk_tau, mk_z, mk_p, mk_trend, stars, n
     """
     rows = []
     for col in value_cols:
         y = df[col]
-        ts = theil_sen_with_ci(y)
-        mk = mann_kendall(y)
+        x = df[year_col].astype(float) if year_col in df.columns else None
+        ts = theil_sen_with_ci(y, x=x)
+        mk = mann_kendall(y, x=x)
         rows.append({
             "metric": col,
-            "slope": ts["slope"],
-            "intercept": ts["intercept"],
-            "slope_lo": ts["slope_lo"],
-            "slope_hi": ts["slope_hi"],
+            "slope": ts["slope_per_decade"],
+            "slope_per_year": ts["slope"],
+            "intercept": ts["intercept_at_x0"],
+            "slope_lo": ts["slope_lo_per_decade"],
+            "slope_hi": ts["slope_hi_per_decade"],
             "slope_pct_per_decade": ts["slope_pct_per_decade"],
             "mk_tau": mk["tau"],
             "mk_z": mk["z"],

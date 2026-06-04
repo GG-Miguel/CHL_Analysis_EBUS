@@ -51,6 +51,34 @@ def test_theil_sen_too_few_points():
     assert np.isnan(res["slope"])
 
 
+def test_theil_sen_per_decade_is_10x_per_year():
+    """The per-decade slope must be exactly 10× the per-year slope."""
+    y = pd.Series(np.arange(20, dtype=float) + 5)
+    res = theil_sen_with_ci(y)
+    assert abs(res["slope_per_decade"] - 10.0 * res["slope"]) < 1e-9
+    assert abs(res["slope_lo_per_decade"] - 10.0 * res["slope_lo"]) < 1e-9
+    assert abs(res["slope_hi_per_decade"] - 10.0 * res["slope_hi"]) < 1e-9
+
+
+def test_theil_sen_with_year_x_gives_per_year_slope():
+    """When x is the actual year, slope should equal per-year rate."""
+    y = pd.Series(np.arange(20, dtype=float) * 2.5)
+    years = pd.Series(np.arange(2000, 2020, dtype=float))
+    res = theil_sen_with_ci(y, x=years)
+    # y increases by 2.5 per year-step; with year x, slope is units/yr = 2.5
+    assert abs(res["slope"] - 2.5) < 1e-6
+    assert abs(res["slope_per_decade"] - 25.0) < 1e-6
+
+
+def test_theil_sen_intercept_at_x0():
+    """intercept_at_x0 should be the y-value at the first x."""
+    y = pd.Series(np.arange(20, dtype=float))
+    years = pd.Series(np.arange(2000, 2020, dtype=float))
+    res = theil_sen_with_ci(y, x=years)
+    # y[0] = 0, slope = 1, so at x0=2000 the line gives 0
+    assert abs(res["intercept_at_x0"] - 0.0) < 1e-6
+
+
 # ---------------------------------------------------------------------------
 # Mann–Kendall
 # ---------------------------------------------------------------------------
@@ -79,6 +107,15 @@ def test_mann_kendall_too_few_points():
     assert np.isnan(res["p_value"])
 
 
+def test_mann_kendall_per_decade_with_year_x():
+    """MK slope_per_decade with year x should be 10× the per-year slope."""
+    y = pd.Series(np.arange(15, dtype=float))
+    years = pd.Series(np.arange(2000, 2015, dtype=float))
+    res = mann_kendall(y, x=years)
+    assert abs(res["slope"] - 1.0) < 1e-6
+    assert abs(res["slope_per_decade"] - 10.0) < 1e-6
+
+
 # ---------------------------------------------------------------------------
 # Circular DOY
 # ---------------------------------------------------------------------------
@@ -99,6 +136,16 @@ def test_circular_doy_monotonic_shift():
     doy = pd.Series([30, 35, 40, 45, 50, 55, 60, 65, 70, 75])
     res = circular_doy_trend(doy)
     assert res["drift_deg_per_year"] > 0
+    assert res["drift_deg_per_decade"] == res["drift_deg_per_year"] * 10
+
+
+def test_circular_doy_with_year_x_doesnt_change_slope_magnitude():
+    """The drift in degrees per year should be invariant under
+    x-translation when x is in years with unit step."""
+    doy = pd.Series([30, 35, 40, 45, 50, 55, 60, 65, 70, 75])
+    res_default = circular_doy_trend(doy)
+    res_with_x = circular_doy_trend(doy, x=np.arange(2010, 2020, dtype=float))
+    assert abs(res_default["drift_deg_per_year"] - res_with_x["drift_deg_per_year"]) < 1e-9
 
 
 # ---------------------------------------------------------------------------
@@ -144,11 +191,16 @@ if __name__ == "__main__":
         test_theil_sen_monotonic_series,
         test_theil_sen_handles_nans,
         test_theil_sen_too_few_points,
+        test_theil_sen_per_decade_is_10x_per_year,
+        test_theil_sen_with_year_x_gives_per_year_slope,
+        test_theil_sen_intercept_at_x0,
         test_mann_kendall_increasing,
         test_mann_kendall_random,
         test_mann_kendall_too_few_points,
+        test_mann_kendall_per_decade_with_year_x,
         test_circular_doy_no_drift_for_wrap,
         test_circular_doy_monotonic_shift,
+        test_circular_doy_with_year_x_doesnt_change_slope_magnitude,
         test_bootstrap_returns_sensible_cis,
         test_bootstrap_handles_all_nan,
         test_p_value_to_stars,
