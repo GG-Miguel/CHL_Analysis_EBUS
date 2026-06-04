@@ -1,0 +1,15 @@
+# Core scientific stack
+numpy>=1.24
+scipy>=1.10
+pandas>=2.0
+xarray>=2023.1
+netCDF4>=1.6
+
+# Geospatial / visualization
+matplotlib>=3.7
+cartopy>=0.22
+scikit-image>=0.20
+
+# Statistics
+pymannkendall>=1.4
+statsmodels>=0.14

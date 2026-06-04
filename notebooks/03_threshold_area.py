@@ -1,7 +1,12 @@
 """
-# 03 — Multi-Threshold Patch Metrics (P85, P95, P99)
+# 03 — Multi-Threshold Patch Metrics (P85, P95, P99) with Bootstrap CIs
+Computes per-year patch metrics (area, mean Chl, # patches, largest
+patch) above each of the four thresholds, and adds 95% bootstrap CIs
+for the per-year metrics.
 """
 
+import os
+import time
 import matplotlib
 matplotlib.use("Agg")
 from pathlib import Path
@@ -17,6 +22,7 @@ from skimage import measure
 
 from src.utils.config import R_EARTH_KM, DATA_DIR, MODISA_FILE, THRESHOLD_PCTS
 from src.preprocessing.ingestion import load_chlorophyll_dataset
+from src.statistics.significance import bootstrap_patch_metrics
 from src.visualization.maps import plot_patch_overlay, plot_metrics_timeseries
 
 FILEPATH = DATA_DIR / MODISA_FILE
@@ -31,6 +37,10 @@ dlon_rad = dlat_rad
 lat_rad = np.deg2rad(lat_2d)
 pixel_area = R_EARTH_KM**2 * np.cos(lat_rad) * dlat_rad * dlon_rad
 
+# Bootstrap configuration
+N_BOOT = int(os.environ.get("N_BOOT", 200))
+SEED = 0
+print(f"Bootstrap: n_boot={N_BOOT}, seed={SEED}")
 print(f"Data shape: {chl.shape}")
 print(f"Lat range: {lat.min():.2f} – {lat.max():.2f}")
 print(f"Thresholds: {THRESHOLD_PCTS}")
@@ -40,6 +50,7 @@ records = []
 
 THRESHOLD_COLORS = {85: "#e8c848", 90: "#c8a830", 95: "#e88a2a", 99: "#d62728"}
 
+t_start = time.time()
 for y in years:
     yearly = chl.sel(time=str(y))
     vals = yearly.values
@@ -62,6 +73,11 @@ for y in years:
             row[f"mean_chl_p{p}"] = np.nan
             row[f"n_patches_p{p}"] = 0
             row[f"largest_patch_p{p}"] = 0
+            # Bootstrap CIs (n_boot = 0 because mask was empty)
+            for k in ("lo", "hi"):
+                row[f"area_km2_p{p}_{k}"] = 0
+                row[f"mean_chl_p{p}_{k}"] = np.nan
+                row[f"threshold_p{p}_{k}"] = t
             continue
 
         mean_chl = float(np.nanmean(chl_ann[mask]))
@@ -75,7 +91,20 @@ for y in years:
         row[f"n_patches_p{p}"] = n_labels
         row[f"largest_patch_p{p}"] = largest
 
+        # Bootstrap CIs
+        boot = bootstrap_patch_metrics(
+            chl_ann, pixel_area,
+            percentile=p, n_boot=N_BOOT, seed=SEED,
+        )
+        row[f"threshold_p{p}_lo"] = boot["threshold"]["lo"]
+        row[f"threshold_p{p}_hi"] = boot["threshold"]["hi"]
+        row[f"area_km2_p{p}_lo"] = boot["area_km2"]["lo"]
+        row[f"area_km2_p{p}_hi"] = boot["area_km2"]["hi"]
+        row[f"mean_chl_p{p}_lo"] = boot["mean_chl"]["lo"]
+        row[f"mean_chl_p{p}_hi"] = boot["mean_chl"]["hi"]
+
     records.append(row)
+    print(f"  year {y} done  ({time.time() - t_start:.1f}s)")
 
 df = pd.DataFrame(records)
 print(df[["year"] + [f"threshold_p{p}" for p in THRESHOLD_PCTS]].head(10))
@@ -86,9 +115,13 @@ for p in THRESHOLD_PCTS:
     print(f"  Mean patches: {df[f'n_patches_p{p}'].mean():.1f}")
     print(f"  Mean chl: {df[f'mean_chl_p{p}'].mean():.3f} mg/m³")
 
-# --- Threshold time series ---
-fig_t, ax_t = plt.subplots(figsize=(3.5, 1.5))
+# --- Threshold time series with CI bands ---
+fig_t, ax_t = plt.subplots(figsize=(3.5, 1.8))
 for p, color in THRESHOLD_COLORS.items():
+    lo = df.get(f"threshold_p{p}_lo")
+    hi = df.get(f"threshold_p{p}_hi")
+    if lo is not None and hi is not None:
+        ax_t.fill_between(df.year, lo, hi, color=color, alpha=0.15, linewidth=0)
     ax_t.plot(df.year, df[f"threshold_p{p}"], "o-", linewidth=0.5, color=color,
               markerfacecolor="white", markeredgewidth=0.4, markeredgecolor=color, markersize=3,
               label=f"P{p}")
@@ -144,5 +177,6 @@ for ey in [2003, 2010, 2020]:
     print(f"  Saved: figures/03_patch_overlay_{ey}.png")
 
 df.to_csv("results/threshold_area_metrics.csv", index=False)
-print("Saved: results/threshold_area_metrics.csv")
+print(f"Saved: results/threshold_area_metrics.csv")
+print(f"Bootstrap total time: {time.time() - t_start:.1f}s")
 print("Step 3 complete.")
