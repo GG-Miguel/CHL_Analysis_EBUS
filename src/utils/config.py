@@ -9,8 +9,9 @@ NATIVE_CADENCE_DAYS = 8
 
 DATA_DIR = Path(os.environ.get(
     "CHL_DATA_DIR",
-    "/data/mgg/Satelite/CHLa/MODIS_AQUA",
+    str(Path.home()),
 ))
+
 FIGURES_DIR = Path("figures")
 RESULTS_DIR = Path("results")
 NOTEBOOKS_DIR = Path("notebooks")

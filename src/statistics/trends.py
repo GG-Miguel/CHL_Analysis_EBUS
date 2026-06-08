@@ -25,13 +25,18 @@ def theil_sen_trend(y: pd.Series, x=None) -> dict:
     (matching the user-facing climate reporting convention); the raw
     per-year slope and CIs are kept as ``slope_per_year`` / ``slope_lo``
     / ``slope_hi`` for back-compat.
+
+    ``intercept`` is the raw Theil–Sen intercept at x = 0 (use
+    ``intercept + slope_per_year * year`` for the trend line).
+    ``intercept_at_x0`` is the y-value at the first x (for reporting).
     """
     ts = theil_sen_with_ci(y, x=x)
     mk = mann_kendall(y, x=x)
     return {
         "slope": ts["slope_per_decade"],
         "slope_per_year": ts["slope"],
-        "intercept": ts["intercept_at_x0"],
+        "intercept": ts["intercept"],
+        "intercept_at_x0": ts["intercept_at_x0"],
         "p_value": mk["p_value"],
         "slope_pct_per_decade": ts["slope_pct_per_decade"],
         "slope_lo": ts["slope_lo_per_decade"],
@@ -70,7 +75,8 @@ def trend_summary_table(df: pd.DataFrame, year_col: str, value_cols: list[str]) 
     95% confidence intervals on both scalings are included as well.
 
     For each column in ``value_cols``, returns one row with:
-        metric, slope (per decade), slope_per_year, intercept_at_x0,
+        metric, slope (per decade), slope_per_year,
+        intercept (raw, for plotting), intercept_at_x0 (for reporting),
         slope_lo (per decade), slope_hi (per decade),
         slope_pct_per_decade,
         mk_tau, mk_z, mk_p, mk_trend, stars, n
@@ -85,7 +91,8 @@ def trend_summary_table(df: pd.DataFrame, year_col: str, value_cols: list[str]) 
             "metric": col,
             "slope": ts["slope_per_decade"],
             "slope_per_year": ts["slope"],
-            "intercept": ts["intercept_at_x0"],
+            "intercept": ts["intercept"],
+            "intercept_at_x0": ts["intercept_at_x0"],
             "slope_lo": ts["slope_lo_per_decade"],
             "slope_hi": ts["slope_hi_per_decade"],
             "slope_pct_per_decade": ts["slope_pct_per_decade"],

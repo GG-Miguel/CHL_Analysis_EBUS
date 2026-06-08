@@ -52,6 +52,8 @@ labels_map = {
     "largest_patch": "Largest patch (km²)",
 }
 
+years_arr = df["year"].astype(float).values
+
 # --- Per-threshold time series with CI bands ---
 for p in THRESHOLD_PCTS:
     fig, axes = plt.subplots(len(METRICS_BASE), 1, figsize=(7.2, 4), sharex=True)
@@ -71,11 +73,10 @@ for p in THRESHOLD_PCTS:
                             color="steelblue", alpha=0.15, linewidth=0,
                             label="95% bootstrap CI")
 
-        # Theil–Sen trend line (uses the per-year slope × (year − first_year) + intercept_at_x0)
+# Theil–Sen trend line (raw intercept + per-year slope × year)
         row = df_trends[df_trends.metric == col]
         if not row.empty:
             tr = row.iloc[0]
-            years_arr = df["year"].astype(float).values
             trend_line = tr["intercept"] + tr["slope_per_year"] * years_arr
             ax.plot(df["year"], trend_line, "--", color="#d55e00", linewidth=0.6,
                     label=f"Theil–Sen {tr['slope']:.2g}/decade ({tr['stars']})")
