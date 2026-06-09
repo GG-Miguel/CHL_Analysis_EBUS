@@ -14,6 +14,12 @@ NOTEBOOKS = [
     "06_figures.py",
 ]
 
+import os
+if os.environ.get("RUN_CLUSTER", "0") == "1":
+    NOTEBOOKS.append("07_cluster_analysis.py")
+if os.environ.get("RUN_SEASONAL_CLUSTER", "0") == "1":
+    NOTEBOOKS.append("08_seasonal_clustering.py")
+
 start = time.time()
 for nb in NOTEBOOKS:
     t0 = time.time()
