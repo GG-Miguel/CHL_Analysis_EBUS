@@ -45,7 +45,7 @@ K = 3
 MIN_CLUSTER_SIZE = 200
 MIN_SAMPLES = 100
 SEED = 0
-PERCENTILES = [85, 90, 95, 99]
+PERCENTILES = [85, 90, 95, 97.5]
 
 print(f"Data shape: {chl.shape}")
 print(f"Temporal resolution: {TEMPORAL_RESOLUTION}")

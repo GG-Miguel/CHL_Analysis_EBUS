@@ -129,5 +129,96 @@ import shutil
 shutil.copy("figures/05_significance_table.png", "figures/Fig5_significance_table.png")
 print("Saved: figures/Fig5_significance_table.png")
 
+from pathlib import Path as _Path
+if _Path("results/peak_background_metrics.csv").exists():
+    from src.statistics.background import annual_percentile_metrics, quantile_regression_trends
+    from src.statistics.significance import theil_sen_with_ci, mann_kendall, p_value_to_stars
+    from src.utils.config import BACKGROUND_PCTS, PEAK_PCTS, QUANTILE_TAU
+
+    df_bg = pd.read_csv("results/peak_background_metrics.csv")
+    bg_years = df_bg["year"].astype(float).values
+
+    n_bg = len(BACKGROUND_PCTS)
+    n_pk = len(PEAK_PCTS) + (1 if "peak_amplitude" in df_bg.columns else 0)
+    n_panels = n_bg + n_pk
+    fig6, axes6 = plt.subplots(n_panels, 1, figsize=(7.2, 1.4 * n_panels), sharex=True)
+    if n_panels == 1:
+        axes6 = [axes6]
+
+    BG_COLORS = {10: "#56b4e9", 25: "#0072b2"}
+    PEAK_COLORS = {90: "#e69f00", 95: "#d55e00", 99: "#cc0000"}
+
+    panel_idx = 0
+    for p in BACKGROUND_PCTS:
+        col = f"bg_p{p}"
+        if col not in df_bg.columns:
+            continue
+        ax = axes6[panel_idx]
+        color = BG_COLORS.get(p, "#0072b2")
+        ax.plot(df_bg["year"], df_bg[col], "o-", linewidth=0.5, color=color,
+                markerfacecolor="white", markeredgewidth=0.4, markeredgecolor=color, markersize=3)
+        ts = theil_sen_with_ci(df_bg[col], x=bg_years)
+        mk_res = mann_kendall(df_bg[col], x=bg_years)
+        trend_line = ts["intercept_at_x0"] + ts["slope"] * bg_years
+        ax.plot(df_bg["year"], trend_line, "--", color="#d55e00", linewidth=0.5,
+                label=f"{ts['slope_per_decade']:.3f}/dec ({p_value_to_stars(mk_res['p_value'])})")
+        ax.set_ylabel(f"Background P{p}\n(mg m⁻³)", fontsize=6)
+        ax.legend(frameon=False, fontsize=5, loc="upper left")
+        ax.tick_params(labelsize=5)
+        panel_idx += 1
+
+    for p in PEAK_PCTS:
+        col = f"peak_p{p}"
+        if col not in df_bg.columns:
+            continue
+        ax = axes6[panel_idx]
+        color = PEAK_COLORS.get(p, "#d55e00")
+        ax.plot(df_bg["year"], df_bg[col], "o-", linewidth=0.5, color=color,
+                markerfacecolor="white", markeredgewidth=0.4, markeredgecolor=color, markersize=3)
+        ts = theil_sen_with_ci(df_bg[col], x=bg_years)
+        mk_res = mann_kendall(df_bg[col], x=bg_years)
+        trend_line = ts["intercept_at_x0"] + ts["slope"] * bg_years
+        ax.plot(df_bg["year"], trend_line, "--", color="#d55e00", linewidth=0.5,
+                label=f"{ts['slope_per_decade']:.3f}/dec ({p_value_to_stars(mk_res['p_value'])})")
+        ax.set_ylabel(f"Peak P{p}\n(mg m⁻³)", fontsize=6)
+        ax.legend(frameon=False, fontsize=5, loc="upper left")
+        ax.tick_params(labelsize=5)
+        panel_idx += 1
+
+    if "peak_amplitude" in df_bg.columns:
+        ax = axes6[panel_idx]
+        ax.plot(df_bg["year"], df_bg["peak_amplitude"], "o-", linewidth=0.5, color="#7f4f9a",
+                markerfacecolor="white", markeredgewidth=0.4, markeredgecolor="#7f4f9a", markersize=3)
+        ts = theil_sen_with_ci(df_bg["peak_amplitude"], x=bg_years)
+        mk_res = mann_kendall(df_bg["peak_amplitude"], x=bg_years)
+        trend_line = ts["intercept_at_x0"] + ts["slope"] * bg_years
+        ax.plot(df_bg["year"], trend_line, "--", color="#d55e00", linewidth=0.5,
+                label=f"{ts['slope_per_decade']:.3f}/dec ({p_value_to_stars(mk_res['p_value'])})")
+        ax.set_ylabel("Peak amplitude\n(mg m⁻³)", fontsize=6)
+        ax.legend(frameon=False, fontsize=5, loc="upper left")
+        ax.tick_params(labelsize=5)
+
+    axes6[-1].set_xlabel("Year", fontsize=6)
+    fig6.suptitle("Fig 6 — Background vs Peak Chlorophyll Trends", fontsize=7)
+    plt.tight_layout()
+    plt.savefig("figures/Fig6_background_vs_peaks.png", dpi=300, bbox_inches="tight")
+    plt.close(fig6)
+    print("Saved: figures/Fig6_background_vs_peaks.png")
+
+    if _Path("results/quantile_regression.csv").exists():
+        qr_df = pd.read_csv("results/quantile_regression.csv")
+        fig7, ax7 = plt.subplots(figsize=(3.5, 2.5))
+        ax7.plot(qr_df["quantile"], qr_df["slope_per_decade"], "o-", color="#3b6992",
+                 markersize=4, linewidth=0.8)
+        ax7.axhline(0, color="#666666", linewidth=0.4)
+        ax7.set_xlabel("Quantile (τ)", fontsize=6)
+        ax7.set_ylabel("Trend slope (per decade)", fontsize=6)
+        ax7.set_title("Fig 7 — Quantile Regression", fontsize=7)
+        ax7.tick_params(labelsize=5)
+        plt.tight_layout()
+        plt.savefig("figures/Fig7_quantile_regression.png", dpi=300, bbox_inches="tight")
+        plt.close(fig7)
+        print("Saved: figures/Fig7_quantile_regression.png")
+
 print("\nAll figures saved in figures/")
 print("Step 6 complete.")

@@ -24,7 +24,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 from src.statistics.trends import trend_summary_table
-from src.utils.config import THRESHOLD_PCTS
+from src.utils.config import THRESHOLD_PCTS, BACKGROUND_PCTS, PEAK_PCTS
 
 df = pd.read_csv("results/threshold_area_metrics.csv")
 print(f"Loaded {len(df)} years: {df.year.min()} – {df.year.max()}")
@@ -166,5 +166,87 @@ plt.tight_layout()
 plt.savefig("figures/05_significance_table.png", dpi=300, bbox_inches="tight")
 plt.close(fig_t)
 print("Saved: figures/05_significance_table.png")
+
+from pathlib import Path as _Path
+bg_file = _Path("results/peak_background_metrics.csv")
+if bg_file.exists():
+    from src.statistics.significance import theil_sen_with_ci, mann_kendall, p_value_to_stars
+    df_bg = pd.read_csv(bg_file)
+    bg_years = df_bg["year"].astype(float).values
+    bg_rows = []
+    for p in BACKGROUND_PCTS:
+        col = f"bg_p{p}"
+        if col not in df_bg.columns:
+            continue
+        ts = theil_sen_with_ci(df_bg[col], x=bg_years)
+        mk_res = mann_kendall(df_bg[col], x=bg_years)
+        bg_rows.append({
+            "metric": col, "slope": ts["slope_per_decade"],
+            "slope_per_year": ts["slope"], "intercept": ts["intercept_at_x0"],
+            "slope_lo": ts["slope_lo_per_decade"], "slope_hi": ts["slope_hi_per_decade"],
+            "slope_pct_per_decade": ts["slope_pct_per_decade"],
+            "mk_tau": mk_res["tau"], "mk_p": mk_res["p_value"],
+            "mk_trend": mk_res["trend"], "stars": p_value_to_stars(mk_res["p_value"]),
+            "n": ts["n"],
+        })
+    for p in PEAK_PCTS:
+        col = f"peak_p{p}"
+        if col not in df_bg.columns:
+            continue
+        ts = theil_sen_with_ci(df_bg[col], x=bg_years)
+        mk_res = mann_kendall(df_bg[col], x=bg_years)
+        bg_rows.append({
+            "metric": col, "slope": ts["slope_per_decade"],
+            "slope_per_year": ts["slope"], "intercept": ts["intercept_at_x0"],
+            "slope_lo": ts["slope_lo_per_decade"], "slope_hi": ts["slope_hi_per_decade"],
+            "slope_pct_per_decade": ts["slope_pct_per_decade"],
+            "mk_tau": mk_res["tau"], "mk_p": mk_res["p_value"],
+            "mk_trend": mk_res["trend"], "stars": p_value_to_stars(mk_res["p_value"]),
+            "n": ts["n"],
+        })
+    if "peak_amplitude" in df_bg.columns:
+        ts = theil_sen_with_ci(df_bg["peak_amplitude"], x=bg_years)
+        mk_res = mann_kendall(df_bg["peak_amplitude"], x=bg_years)
+        bg_rows.append({
+            "metric": "peak_amplitude", "slope": ts["slope_per_decade"],
+            "slope_per_year": ts["slope"], "intercept": ts["intercept_at_x0"],
+            "slope_lo": ts["slope_lo_per_decade"], "slope_hi": ts["slope_hi_per_decade"],
+            "slope_pct_per_decade": ts["slope_pct_per_decade"],
+            "mk_tau": mk_res["tau"], "mk_p": mk_res["p_value"],
+            "mk_trend": mk_res["trend"], "stars": p_value_to_stars(mk_res["p_value"]),
+            "n": ts["n"],
+        })
+    if bg_rows:
+        df_bg_trends = pd.DataFrame(bg_rows)
+        df_trends = pd.concat([df_trends, df_bg_trends], ignore_index=True)
+        df_trends.to_csv("results/trend_significance.csv", index=False)
+        df_trends.to_csv("results/trends.csv", index=False)
+        print("\n=== Background / Peak trends appended to significance table ===")
+        print(df_bg_trends.to_string(index=False))
+
+        fig_bg, axes_bg = plt.subplots(len(bg_rows), 1,
+                                        figsize=(7.2, 1.4 * len(bg_rows)), sharex=True)
+        if len(bg_rows) == 1:
+            axes_bg = [axes_bg]
+        BG_COLORS = {10: "#56b4e9", 25: "#0072b2"}
+        PEAK_COLORS = {90: "#e69f00", 95: "#d55e00", 99: "#cc0000"}
+        for i, row_data in enumerate(bg_rows):
+            ax = axes_bg[i]
+            metric = row_data["metric"]
+            ax.plot(df_bg["year"], df_bg[metric], "o-", linewidth=0.5, color="#3b6992",
+                    markerfacecolor="white", markeredgewidth=0.4, markeredgecolor="#3b6992",
+                    markersize=3)
+            trend_line = row_data["intercept"] + row_data["slope_per_year"] * bg_years
+            ax.plot(df_bg["year"], trend_line, "--", color="#d55e00", linewidth=0.5,
+                    label=f"{row_data['slope']:.3f}/dec ({row_data['stars']})")
+            ax.set_ylabel(metric, fontsize=6)
+            ax.legend(frameon=False, fontsize=5, loc="upper left")
+            ax.tick_params(labelsize=5)
+        axes_bg[-1].set_xlabel("Year", fontsize=6)
+        fig_bg.suptitle("Background vs Peak Trends (per decade)", fontsize=7)
+        plt.tight_layout()
+        plt.savefig("figures/05_background_peak_trends.png", dpi=300, bbox_inches="tight")
+        plt.close(fig_bg)
+        print("Saved: figures/05_background_peak_trends.png")
 
 print("Step 5 complete.")

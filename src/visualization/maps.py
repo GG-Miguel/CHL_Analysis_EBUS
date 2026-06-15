@@ -36,7 +36,7 @@ def _prepare_grid(lon, lat, data=None):
     return lon_filled, data
 
 
-def _add_map_basics(ax, extent=[-34, -4, 18, 32]):
+def _add_map_basics(ax, extent=[-30, -7, 10, 45]):
     ax.set_extent(extent, crs=ccrs.PlateCarree())
     ax.add_feature(cfeature.LAND, color=LAND_COLOR, zorder=2)
     ax.add_feature(cfeature.COASTLINE, linewidth=COAST_WIDTH, edgecolor=COAST_COLOR, zorder=3)

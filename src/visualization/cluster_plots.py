@@ -45,7 +45,7 @@ def plot_cluster_map(
         width=SINGLE_COL_WIDTH, height=5.5,
         subplot_kw={"projection": ccrs.PlateCarree()},
     )
-    _add_map_basics(ax, extent=extent or [-34, -4, 8, 46])
+    _add_map_basics(ax, extent=extent or [-30, -7, 10, 45])
 
     cmap = plt.cm.viridis.copy()
     cmap.set_bad("white")
@@ -232,7 +232,7 @@ def plot_seasonal_cluster_map(
         width=SINGLE_COL_WIDTH, height=5.5,
         subplot_kw={"projection": ccrs.PlateCarree()},
     )
-    _add_map_basics(ax, extent=extent or [-34, -4, 8, 46])
+    _add_map_basics(ax, extent=extent or [-30, -7, 10, 45])
 
     cmap = plt.cm.viridis.copy()
     cmap.set_bad("white")
