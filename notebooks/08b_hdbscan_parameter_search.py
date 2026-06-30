@@ -86,8 +86,23 @@ if len(lat_sel) == 0:
     print("No valid pixels found. Exiting.")
     sys.exit(1)
 
+SUBSAMPLE_SIZE = 10000
+if len(lat_sel) > SUBSAMPLE_SIZE:
+    print(f"\n--- Subsampling for parameter search ---")
+    rng = np.random.default_rng(SEED)
+    subsample_idx = rng.choice(len(lat_sel), size=SUBSAMPLE_SIZE, replace=False)
+    cycles_search = cycles[subsample_idx]
+    lat_sel_search = lat_sel[subsample_idx]
+    lon_sel_search = lon_sel[subsample_idx]
+    print(f"Subsampled to {SUBSAMPLE_SIZE} pixels for grid search")
+else:
+    cycles_search = cycles
+    lat_sel_search = lat_sel
+    lon_sel_search = lon_sel
+    print(f"\nUsing all {len(lat_sel)} pixels for grid search")
+
 print("\n--- PCA explained variance analysis ---")
-cycles_z = _zscore_cycles(cycles)
+cycles_z = _zscore_cycles(cycles_search)
 pca_full = PCA()
 pca_full.fit(cycles_z)
 cumvar = np.cumsum(pca_full.explained_variance_ratio_)
@@ -118,7 +133,7 @@ print(f"Saved: {SUPP_DIR}/08b_pca_variance.png")
 print("\n--- Running HDBSCAN parameter grid search ---")
 t0 = time.time()
 results = search_hdbscan_parameters(
-    cycles,
+    cycles_search,
     min_cluster_sizes=MIN_CLUSTER_SIZES,
     min_samples_list=MIN_SAMPLES_LIST,
     pca_components=PCA_COMPONENTS,
@@ -251,13 +266,14 @@ else:
 print("\n--- Running best HDBSCAN vs K-means comparison ---")
 if len(top10) > 0:
     best = top10.iloc[0]
-    print(f"\nBest parameters:")
+    print(f"\nBest parameters (from subsample):")
     print(f"  min_cluster_size: {int(best['min_cluster_size'])}")
     print(f"  min_samples: {int(best['min_samples'])}")
     print(f"  PCA components: {int(best['n_pca_components'])}")
     print(f"  selection method: {best['cluster_selection_method']}")
     print(f"  DBCV: {best['dbcv']:.4f}")
 
+    print(f"\nApplying best parameters to full dataset ({len(lat_sel)} pixels)...")
     hdbscan_labels, hdbscan_probs, hdbscan_obj = cluster_seasonal_hdbscan_pca(
         cycles,
         min_cluster_size=int(best["min_cluster_size"]),
