@@ -11,16 +11,15 @@ NOTEBOOKS = [
     "03_threshold_area.py",
     "04_seasonal.py",
     "05_trends.py",
-    "06_figures.py",
     "07_quantile_trends.py",
+    "09_peak_background.py",
     "08_peak_background.py",
+    "06_figures.py",
 ]
 
 import os
-if os.environ.get("RUN_CLUSTER", "0") == "1":
-    NOTEBOOKS.append("09_cluster_analysis.py")
 if os.environ.get("RUN_SEASONAL_CLUSTER", "0") == "1":
-    NOTEBOOKS.append("10_seasonal_clustering.py")
+    NOTEBOOKS.append("08_seasonal_clustering.py")
 
 start = time.time()
 for nb in NOTEBOOKS:
