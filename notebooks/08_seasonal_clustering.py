@@ -24,7 +24,7 @@ from src.utils.config import DATA_DIR, MODISA_FILE
 from src.preprocessing.ingestion import load_chlorophyll_dataset
 from src.models.clustering import (
     compute_seasonal_cycles,
-    cluster_seasonal_hdbscan,
+    cluster_seasonal_hdbscan_pca,
     cluster_seasonal_kmeans,
     select_optimal_k_seasonal,
 )
@@ -40,10 +40,15 @@ chl = ds["chl"]
 lat = ds.lat.values
 lon = ds.lon.values
 
+SUPP_DIR = Path("figures/Supplementary")
+SUPP_DIR.mkdir(parents=True, exist_ok=True)
+
 TEMPORAL_RESOLUTION = "8day"
 K = 3
-MIN_CLUSTER_SIZE = 200
+MIN_CLUSTER_SIZE = 500
 MIN_SAMPLES = 100
+PCA_COMPONENTS = 3
+SELECTION_METHOD = "leaf"
 SEED = 0
 PERCENTILES = [85, 90, 95, 97.5]
 
@@ -51,7 +56,7 @@ print(f"Data shape: {chl.shape}")
 print(f"Temporal resolution: {TEMPORAL_RESOLUTION}")
 print(f"K-means k: {K}")
 print(f"Percentiles: {PERCENTILES}")
-print(f"HDBSCAN: min_cluster_size={MIN_CLUSTER_SIZE}, min_samples={MIN_SAMPLES}")
+print(f"HDBSCAN-PCA: min_cluster_size={MIN_CLUSTER_SIZE}, min_samples={MIN_SAMPLES}, PCA={PCA_COMPONENTS}, {SELECTION_METHOD}")
 
 with warnings.catch_warnings():
     warnings.simplefilter("ignore", RuntimeWarning)
@@ -82,17 +87,19 @@ for pct in PERCENTILES:
     print("\n--- Silhouette analysis for optimal k ---")
     k_df = select_optimal_k_seasonal(cycles, k_range=range(2, 7), seed=SEED)
     print(k_df.to_string(index=False))
-    plot_silhouette(k_df, savepath=f"figures/08_silhouette_P{pct}.png")
-    print(f"Saved: figures/08_silhouette_P{pct}.png")
+    plot_silhouette(k_df, savepath=str(SUPP_DIR / f"08_silhouette_P{pct}.png"))
+    print(f"Saved: {SUPP_DIR}/08_silhouette_P{pct}.png")
 
-    print("\n--- HDBSCAN on seasonal cycles ---")
+    print("\n--- HDBSCAN-PCA on seasonal cycles ---")
     t0 = time.time()
-    hdbscan_labels, hdbscan_probs = cluster_seasonal_hdbscan(
+    hdbscan_labels, hdbscan_probs, _ = cluster_seasonal_hdbscan_pca(
         cycles,
         min_cluster_size=MIN_CLUSTER_SIZE,
         min_samples=MIN_SAMPLES,
+        n_components=PCA_COMPONENTS,
+        cluster_selection_method=SELECTION_METHOD,
     )
-    print(f"HDBSCAN complete: {time.time() - t0:.1f}s")
+    print(f"HDBSCAN-PCA complete: {time.time() - t0:.1f}s")
     n_hdbscan = len(np.unique(hdbscan_labels[hdbscan_labels >= 0]))
     n_noise = np.sum(hdbscan_labels < 0)
     print(f"HDBSCAN clusters found: {n_hdbscan}")
@@ -101,7 +108,7 @@ for pct in PERCENTILES:
     plot_seasonal_cluster_map(
         lon, lat, chl_clim,
         lat_sel, lon_sel, hdbscan_labels,
-        title=f"HDBSCAN — Seasonal Cycles (P{pct})",
+        title=f"HDBSCAN-PCA — Seasonal Cycles (P{pct})",
         savepath=f"figures/08_seasonal_map_hdbscan_P{pct}.png",
     )
     print(f"Saved: figures/08_seasonal_map_hdbscan_P{pct}.png")
@@ -134,7 +141,7 @@ for pct in PERCENTILES:
     print(f"Saved: figures/08_seasonal_cycles_kmeans_P{pct}.png")
 
     print(f"\n--- Cluster statistics P{pct} ---")
-    for method, labels in [("HDBSCAN", hdbscan_labels), ("K-means", kmeans_labels)]:
+    for method, labels in [("HDBSCAN-PCA", hdbscan_labels), ("K-means", kmeans_labels)]:
         print(f"\n  {method}:")
         unique_labels = np.unique(labels)
         unique_labels = unique_labels[unique_labels >= 0]
