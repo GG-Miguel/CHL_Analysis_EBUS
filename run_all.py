@@ -14,12 +14,9 @@ NOTEBOOKS = [
     "07_quantile_trends.py",
     "09_peak_background.py",
     "08_peak_background.py",
+    "08_seasonal_clustering.py",
     "06_figures.py",
 ]
-
-import os
-if os.environ.get("RUN_SEASONAL_CLUSTER", "0") == "1":
-    NOTEBOOKS.append("08_seasonal_clustering.py")
 
 start = time.time()
 for nb in NOTEBOOKS:
