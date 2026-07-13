@@ -302,7 +302,7 @@ def compute_seasonal_cycles(
     lon: np.ndarray,
     percentile: float = 97,
     temporal_resolution: str = "8day",
-) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
     """
     Compute climatological seasonal cycle vectors for each pixel.
 
@@ -325,6 +325,8 @@ def compute_seasonal_cycles(
         Coordinates of valid pixels
     periods : np.ndarray
         Period indices (1-46 for 8day, 1-12 for monthly)
+    ys, xs : np.ndarray
+        Row and column indices of selected pixels in the original grid
     """
     with warnings.catch_warnings():
         warnings.simplefilter("ignore", RuntimeWarning)
@@ -332,7 +334,7 @@ def compute_seasonal_cycles(
 
     valid = ~np.isnan(chl_clim)
     if not valid.any():
-        return np.array([]), np.array([]), np.array([]), np.array([])
+        return np.array([]), np.array([]), np.array([]), np.array([]), np.array([]), np.array([])
 
     threshold = float(np.nanpercentile(chl_clim[valid], percentile))
     mask = (chl_clim >= threshold) & valid
@@ -376,7 +378,7 @@ def compute_seasonal_cycles(
         cycles_list.append(period_values)
 
     cycles = np.column_stack(cycles_list)
-    return cycles, lat_sel, lon_sel, periods
+    return cycles, lat_sel, lon_sel, periods, ys, xs
 
 
 def compute_correlation_distance(cycles: np.ndarray) -> np.ndarray:

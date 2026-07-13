@@ -34,6 +34,7 @@ from src.visualization.cluster_plots import (
     plot_seasonal_cluster_map,
     plot_seasonal_cycles_by_cluster,
     plot_cluster_trend_map,
+    CLUSTER_COLORS,
 )
 
 FILEPATH = DATA_DIR / MODISA_FILE
@@ -70,7 +71,7 @@ with warnings.catch_warnings():
 
 print("\n--- Computing seasonal cycle vectors (P99) ---")
 t0 = time.time()
-cycles, lat_sel, lon_sel, periods = compute_seasonal_cycles(
+cycles, lat_sel, lon_sel, periods, ys_idx, xs_idx = compute_seasonal_cycles(
     chl, lat, lon,
     percentile=PERCENTILE,
     temporal_resolution="8day",
@@ -135,6 +136,7 @@ print(f"Saved: figures/09_seasonal_cycles_kmeans_P{PERCENTILE}.png")
 
 def compute_cluster_yearly_metrics(
     chl_da, lat_sel, lon_sel, cluster_labels, years, pixel_area_2d, percentile,
+    ys_idx, xs_idx,
 ):
     """
     For each cluster and each year, compute background/peak metrics
@@ -147,13 +149,8 @@ def compute_cluster_yearly_metrics(
     records = []
     for cl in unique_clusters:
         mask_cl = cluster_labels == cl
-        cl_lat = lat_sel[mask_cl]
-        cl_lon = lon_sel[mask_cl]
-
-        cl_ys = np.searchsorted(lat, cl_lat, side="left")
-        cl_xs = np.searchsorted(lon, cl_lon, side="left")
-        cl_ys = np.clip(cl_ys, 0, lat.shape[0] - 1)
-        cl_xs = np.clip(cl_xs, 0, lon.shape[0] - 1)
+        cl_ys = ys_idx[mask_cl]
+        cl_xs = xs_idx[mask_cl]
 
         for yi, y in enumerate(years):
             yearly = chl_da.sel(time=str(y))
@@ -198,7 +195,7 @@ def compute_cluster_yearly_metrics(
     return pd.DataFrame(records)
 
 
-def compute_trends(df, method_name):
+def compute_trends(df, method_name, cluster_labels, lat_sel, lon_sel):
     """Run Theil-Sen + MK on each cluster's metrics."""
     unique_clusters = sorted(df["cluster"].unique())
     trend_records = []
@@ -244,6 +241,7 @@ print("\n--- Computing per-cluster yearly metrics (HDBSCAN-PCA) ---")
 t0 = time.time()
 hdbscan_metrics = compute_cluster_yearly_metrics(
     chl, lat_sel, lon_sel, hdbscan_labels, years, pixel_area, PERCENTILE,
+    ys_idx, xs_idx,
 )
 print(f"Done: {time.time() - t0:.1f}s")
 print(f"Records: {len(hdbscan_metrics)}")
@@ -254,6 +252,7 @@ print("\n--- Computing per-cluster yearly metrics (K-means) ---")
 t0 = time.time()
 kmeans_metrics = compute_cluster_yearly_metrics(
     chl, lat_sel, lon_sel, kmeans_labels, years, pixel_area, PERCENTILE,
+    ys_idx, xs_idx,
 )
 print(f"Done: {time.time() - t0:.1f}s")
 print(f"Records: {len(kmeans_metrics)}")
@@ -261,13 +260,13 @@ kmeans_metrics.to_csv(f"results/09_cluster_metrics_kmeans_P{PERCENTILE}.csv", in
 print(f"Saved: results/09_cluster_metrics_kmeans_P{PERCENTILE}.csv")
 
 print("\n--- Trend analysis (HDBSCAN-PCA) ---")
-hdbscan_trends = compute_trends(hdbscan_metrics, "HDBSCAN-PCA")
+hdbscan_trends = compute_trends(hdbscan_metrics, "HDBSCAN-PCA", hdbscan_labels, lat_sel, lon_sel)
 hdbscan_trends.to_csv(f"results/09_cluster_trends_hdbscan_P{PERCENTILE}.csv", index=False)
 print(f"Saved: results/09_cluster_trends_hdbscan_P{PERCENTILE}.csv")
 print(hdbscan_trends[["cluster", "metric", "slope_per_decade", "mk_p", "stars"]].to_string(index=False))
 
 print("\n--- Trend analysis (K-means) ---")
-kmeans_trends = compute_trends(kmeans_metrics, "K-means")
+kmeans_trends = compute_trends(kmeans_metrics, "K-means", kmeans_labels, lat_sel, lon_sel)
 kmeans_trends.to_csv(f"results/09_cluster_trends_kmeans_P{PERCENTILE}.csv", index=False)
 print(f"Saved: results/09_cluster_trends_kmeans_P{PERCENTILE}.csv")
 print(kmeans_trends[["cluster", "metric", "slope_per_decade", "mk_p", "stars"]].to_string(index=False))

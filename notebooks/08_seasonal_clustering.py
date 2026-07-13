@@ -66,7 +66,7 @@ for pct in PERCENTILES:
 
     print("\n--- Computing seasonal cycle vectors ---")
     t0 = time.time()
-    cycles, lat_sel, lon_sel, periods = compute_seasonal_cycles(
+    cycles, lat_sel, lon_sel, periods, _, _ = compute_seasonal_cycles(
         chl, lat, lon,
         percentile=pct,
         temporal_resolution=TEMPORAL_RESOLUTION,
