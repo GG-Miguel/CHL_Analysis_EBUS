@@ -324,3 +324,125 @@ def plot_seasonal_cycles_by_cluster(
     if savepath:
         save_nature(fig, savepath)
     return fig, ax
+
+
+def plot_cluster_trend_map(
+    lon: np.ndarray,
+    lat: np.ndarray,
+    chl_mean: np.ndarray,
+    cluster_lat: np.ndarray,
+    cluster_lon: np.ndarray,
+    cluster_labels: np.ndarray,
+    trend_df: "pd.DataFrame",
+    metric: str = "peak_mean",
+    title: str = "",
+    savepath: str | None = None,
+    extent: list | None = None,
+):
+    """
+    Plot map showing cluster regions with trend annotations.
+
+    Parameters
+    ----------
+    lon, lat : np.ndarray
+        Coordinate arrays
+    chl_mean : np.ndarray
+        Mean chlorophyll for background
+    cluster_lat, cluster_lon : np.ndarray
+        Pixel coordinates for cluster members
+    cluster_labels : np.ndarray
+        Cluster assignment for each pixel
+    trend_df : pd.DataFrame
+        DataFrame with columns: cluster, slope_per_decade, mk_p, stars,
+        center_lat, center_lon
+    metric : str
+        Which metric to annotate ("bg_mean", "peak_mean", "integrated_chl")
+    title : str
+        Plot title
+    savepath : str, optional
+        Path to save figure
+    extent : list, optional
+        Map extent [lon_min, lon_max, lat_min, lat_max]
+    """
+    import pandas as pd
+
+    if lat.ndim == 1 and lon.ndim == 2:
+        lat_2d = lat[:, np.newaxis] * np.ones_like(lon)
+    elif lat.ndim == 1 and lon.ndim == 1:
+        lat_2d, _ = np.meshgrid(lat, lon, indexing="ij")
+    else:
+        lat_2d = lat
+
+    lon_filled, chl_mean = _prepare_grid(lon, lat_2d, chl_mean)
+
+    fig, ax = nature_fig(
+        width=SINGLE_COL_WIDTH, height=5.5,
+        subplot_kw={"projection": ccrs.PlateCarree()},
+    )
+    _add_map_basics(ax, extent=extent or [-34, -4, 8, 46])
+
+    cmap = plt.cm.viridis.copy()
+    cmap.set_bad("white")
+    ax.pcolormesh(
+        lon_filled, lat_2d, chl_mean,
+        norm=LogNorm(vmin=0.01, vmax=10),
+        cmap=cmap, shading="auto", transform=ccrs.PlateCarree(),
+        linewidth=0, rasterized=True, alpha=0.4,
+    )
+
+    unique_labels = np.unique(cluster_labels)
+    unique_labels = unique_labels[unique_labels >= 0]
+
+    for cl in unique_labels:
+        mask = cluster_labels == cl
+        color = CLUSTER_COLORS[int(cl) % len(CLUSTER_COLORS)]
+        ax.scatter(
+            cluster_lon[mask], cluster_lat[mask],
+            c=color, s=0.5, alpha=0.3,
+            transform=ccrs.PlateCarree(), rasterized=True,
+        )
+
+    for _, row in trend_df.iterrows():
+        cl = int(row["cluster"])
+        color = CLUSTER_COLORS[cl % len(CLUSTER_COLORS)]
+        ax.plot(
+            row["center_lon"], row["center_lat"],
+            "X", color=color, markersize=8, markeredgewidth=0.8,
+            markeredgecolor="white",
+            transform=ccrs.PlateCarree(), zorder=5,
+        )
+
+        slope = row["slope_per_decade"]
+        stars = row["stars"]
+        if metric == "integrated_chl":
+            slope_str = f"{slope:.1f}"
+            unit = "mg km²"
+        else:
+            slope_str = f"{slope:.2f}"
+            unit = "mg m⁻³"
+
+        label = f"C{cl}: {slope_str} {unit}/dec\n{stars}"
+        ax.annotate(
+            label,
+            xy=(row["center_lon"], row["center_lat"]),
+            xytext=(8, -8), textcoords="offset points",
+            fontsize=5, color=color, fontweight="bold",
+            transform=ccrs.PlateCarree(),
+            bbox=dict(boxstyle="round,pad=0.3", facecolor="white",
+                      edgecolor=color, alpha=0.8, linewidth=0.5),
+        )
+
+    from matplotlib.patches import Patch
+    legend_handles = [
+        Patch(facecolor=CLUSTER_COLORS[int(cl) % len(CLUSTER_COLORS)],
+              label=f"Cluster {cl}")
+        for cl in unique_labels
+    ]
+    ax.legend(handles=legend_handles, loc="lower right", frameon=False, fontsize=6)
+
+    if title:
+        ax.set_title(title, fontsize=7, pad=4)
+
+    if savepath:
+        save_nature(fig, savepath)
+    return fig, ax

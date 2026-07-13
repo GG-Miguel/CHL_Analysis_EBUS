@@ -466,6 +466,70 @@ def cluster_seasonal_hdbscan(
     return labels, probabilities
 
 
+def cluster_seasonal_hdbscan_pca(
+    cycles: np.ndarray,
+    min_cluster_size: int = 500,
+    min_samples: int = 100,
+    n_components: int | None = 3,
+    cluster_selection_method: str = "leaf",
+) -> tuple[np.ndarray, np.ndarray, object, object]:
+    """
+    Cluster pixels by seasonal cycle similarity using HDBSCAN on PCA-reduced
+    z-scored cycles.
+
+    Parameters
+    ----------
+    cycles : np.ndarray
+        Shape (n_pixels, n_periods) - raw seasonal cycle vectors
+    min_cluster_size : int
+        Minimum cluster size for HDBSCAN
+    min_samples : int
+        Minimum samples for core distance
+    n_components : int or None
+        Number of PCA components. If None, auto-selects components explaining
+        >=90% variance. Default 3 (optimal per DBCV grid search).
+    cluster_selection_method : str
+        "eom" (Excess of Mass) or "leaf" (fine-grained). Default "leaf".
+
+    Returns
+    -------
+    labels : np.ndarray
+        Cluster labels (-1 for noise)
+    probabilities : np.ndarray
+        Membership probabilities
+    pca : PCA
+        Fitted PCA object
+    clusterer : HDBSCAN
+        Fitted HDBSCAN object
+    """
+    from sklearn.decomposition import PCA
+
+    n = cycles.shape[0]
+    if n < min_cluster_size:
+        return np.full(n, -1, dtype=int), np.zeros(n, dtype=float), None, None
+
+    cycles_z = _zscore_cycles(cycles)
+
+    if n_components is None:
+        pca_full = PCA()
+        pca_full.fit(cycles_z)
+        cumvar = np.cumsum(pca_full.explained_variance_ratio_)
+        n_components = int(np.searchsorted(cumvar, 0.90) + 1)
+
+    pca = PCA(n_components=n_components)
+    scores = pca.fit_transform(cycles_z)
+
+    clusterer = hdbscan.HDBSCAN(
+        min_cluster_size=min_cluster_size,
+        min_samples=min_samples,
+        metric="euclidean",
+        cluster_selection_method=cluster_selection_method,
+    )
+    labels = clusterer.fit_predict(scores)
+    probabilities = clusterer.probabilities_
+    return labels, probabilities, pca, clusterer
+
+
 def cluster_seasonal_kmeans(
     cycles: np.ndarray,
     k: int = 2,
