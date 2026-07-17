@@ -66,7 +66,7 @@ for pct in PERCENTILES:
 
     print("\n--- Computing seasonal cycle vectors ---")
     t0 = time.time()
-    cycles, lat_sel, lon_sel, periods, _, _ = compute_seasonal_cycles(
+    cycles, lat_sel, lon_sel, periods, ys_idx, xs_idx = compute_seasonal_cycles(
         chl, lat, lon,
         percentile=pct,
         temporal_resolution=TEMPORAL_RESOLUTION,
@@ -166,6 +166,19 @@ for pct in PERCENTILES:
                 "peak_period": peak_period,
                 "peak_chl": round(peak_chl, 2),
             })
+
+    print(f"\n--- Saving cluster labels for P{pct} ---")
+    np.savez(
+        f"results/08_cluster_labels_P{pct}.npz",
+        hdbscan_labels=hdbscan_labels,
+        kmeans_labels=kmeans_labels,
+        lat_sel=lat_sel,
+        lon_sel=lon_sel,
+        ys_idx=ys_idx,
+        xs_idx=xs_idx,
+        periods=periods,
+    )
+    print(f"Saved: results/08_cluster_labels_P{pct}.npz")
 
     print(f"\n  P{pct} done.")
 

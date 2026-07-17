@@ -7,10 +7,7 @@ THRESHOLD_PERCENTILE = 85
 
 NATIVE_CADENCE_DAYS = 8
 
-DATA_DIR = Path(os.environ.get(
-    "CHL_DATA_DIR",
-    str(Path.home()),
-))
+DATA_DIR = Path("/data/mgg/Satelite/CHLa/MODIS_AQUA")
 
 FIGURES_DIR = Path("figures")
 RESULTS_DIR = Path("results")

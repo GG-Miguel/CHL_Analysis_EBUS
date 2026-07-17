@@ -52,7 +52,7 @@ peak_doy_clim = doys[np.nanargmax(spatial_mean_clim.values)]
 print(f"Climatology peak DOY: {peak_doy_clim}")
 
 # --- Monthly climatology ---
-chl_monthly = chl.resample(time="ME").mean(skipna=True)
+chl_monthly = chl.resample(time="M").mean(skipna=True)
 monthly_clim = chl_monthly.groupby("time.month").mean("time", skipna=True)
 spatial_monthly_clim = monthly_clim.mean(dim=["row", "col"], skipna=True)
 
