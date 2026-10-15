@@ -44,7 +44,7 @@ lat = ds.lat.values
 lon = ds.lon.values
 lat_2d = lat[:, np.newaxis] * np.ones_like(lon)
 
-PERCENTILE = 99
+PERCENTILE = 97.5 
 K = 3
 MIN_CLUSTER_SIZE = 500
 MIN_SAMPLES = 100

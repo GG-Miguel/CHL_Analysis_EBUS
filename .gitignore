@@ -15,7 +15,7 @@
 /results/*.csv
 
 # ===== Figures (rendered outputs) =====
-/figures/*.png
+/figures/**/*.png
 /figures/*.jpg
 /figures/*.jpeg
 /figures/*.pdf
