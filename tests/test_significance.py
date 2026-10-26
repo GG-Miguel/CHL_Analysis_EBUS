@@ -18,6 +18,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from src.statistics.significance import (
     bootstrap_patch_metrics,
     circular_doy_trend,
+    fdr_bh,
     mann_kendall,
     p_value_to_stars,
     theil_sen_with_ci,
@@ -184,6 +185,45 @@ def test_p_value_to_stars():
 
 
 # ---------------------------------------------------------------------------
+# FDR correction
+# ---------------------------------------------------------------------------
+def test_fdr_bh_preserves_order_and_bounds():
+    """q-values must be in [0, 1], same length/order as input, and
+    monotonically non-increasing when sorted by input p-value."""
+    rng = np.random.default_rng(0)
+    p = rng.uniform(0.001, 0.5, size=20)
+    q = fdr_bh(p)
+    assert q.shape == p.shape
+    assert np.all((q >= 0) & (q <= 1))
+    # Sorted q must be non-increasing under BH monotonicity
+    assert np.all(np.diff(np.sort(q)) >= -1e-12)
+
+
+def test_fdr_bh_all_significant_when_all_p_low():
+    """When all p-values are very small, all q-values remain small."""
+    p = np.full(10, 0.001)
+    q = fdr_bh(p)
+    assert np.all(q <= 0.05)
+
+
+def test_fdr_bh_handles_nans():
+    """NaN p-values should stay NaN and not affect the others."""
+    p = np.array([0.01, np.nan, 0.04, 0.2, np.nan])
+    q = fdr_bh(p)
+    assert np.isnan(q[1])
+    assert np.isnan(q[4])
+    # The smallest valid p should be the most significant after correction
+    assert q[0] <= q[2]
+    assert q[0] <= q[3]
+
+
+def test_fdr_bh_empty():
+    """Empty input should return an empty array."""
+    q = fdr_bh([])
+    assert len(q) == 0
+
+
+# ---------------------------------------------------------------------------
 # Manual runner
 # ---------------------------------------------------------------------------
 if __name__ == "__main__":
@@ -204,6 +244,10 @@ if __name__ == "__main__":
         test_bootstrap_returns_sensible_cis,
         test_bootstrap_handles_all_nan,
         test_p_value_to_stars,
+        test_fdr_bh_preserves_order_and_bounds,
+        test_fdr_bh_all_significant_when_all_p_low,
+        test_fdr_bh_handles_nans,
+        test_fdr_bh_empty,
     ]
     passed = 0
     for t in tests:

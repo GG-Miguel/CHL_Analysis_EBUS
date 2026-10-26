@@ -110,12 +110,15 @@ The raw data is built by `merge_modis_aqua_full_grid.py` from the
 NASA OBPG L3b binned files, then cropped to the bbox in
 `data_local/`.
 
-The path can be overridden with the `CHL_DATA_DIR` environment
-variable:
+The data directory can be overridden with the `PAPER3_DATA_DIR`
+environment variable (useful when running the same code on a server):
 
 ```bash
-export CHL_DATA_DIR=/path/to/CHLa
+export PAPER3_DATA_DIR=/path/to/CHLa
 ```
+
+By default `config.py` uses `/Users/GGMig/paper3/data_local/` when it
+exists, otherwise it falls back to `/data/mgg/Satelite/CHLa/MODIS_AQUA`.
 
 ---
 
@@ -126,7 +129,7 @@ export CHL_DATA_DIR=/path/to/CHLa
 python -m pip install -r requirements.txt
 
 # 2. (optional) point at your data
-export CHL_DATA_DIR=/Users/GGMig
+export PAPER3_DATA_DIR=/Users/GGMig/paper3/data_local
 
 # 3. Run the full pipeline
 python run_all.py

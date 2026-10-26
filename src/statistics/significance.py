@@ -438,3 +438,55 @@ def p_value_to_stars(p: float) -> str:
     if p < 0.05:
         return "*"
     return "n.s."
+
+
+def fdr_bh(p_values: Iterable, alpha: float = 0.05) -> np.ndarray:
+    """
+    Benjamini-Hochberg false-discovery-rate correction.
+
+    Parameters
+    ----------
+    p_values : array-like
+        P-values to correct. NaN values are returned as NaN and are not
+        counted in the FDR procedure.
+    alpha : float
+        Target false-discovery rate (used only for the optional
+        ``reject`` flag; q-values are returned regardless).
+
+    Returns
+    -------
+    q_values : np.ndarray
+        FDR-corrected q-values in the same order as the input.
+        Values are clipped to [0, 1].
+    """
+    p = np.asarray(p_values, dtype=float)
+    if p.size == 0:
+        return p.copy()
+
+    valid_mask = ~np.isnan(p)
+    if not valid_mask.any():
+        return p.copy()
+
+    valid_idx = np.where(valid_mask)[0]
+    p_valid = p[valid_mask]
+    m = int(p_valid.size)
+
+    order = np.argsort(p_valid)
+    rank = np.empty_like(order, dtype=float)
+    rank[order] = np.arange(1, m + 1, dtype=float)
+
+    # BH q-values without monotonicity correction
+    q_raw = p_valid * m / rank
+    q_raw = np.minimum(q_raw, 1.0)
+
+    # Monotonicity: q(i) <= q(i+1) in sorted order
+    q_sorted = q_raw[order]
+    for i in range(m - 2, -1, -1):
+        q_sorted[i] = min(q_sorted[i], q_sorted[i + 1])
+
+    q_valid = np.empty(m, dtype=float)
+    q_valid[order] = q_sorted
+
+    q = p.copy()
+    q[valid_idx] = q_valid
+    return q

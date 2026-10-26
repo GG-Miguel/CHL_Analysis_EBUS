@@ -1,3 +1,4 @@
+import warnings
 import numpy as np
 import matplotlib.pyplot as plt
 import cartopy.crs as ccrs
@@ -300,9 +301,14 @@ def plot_seasonal_cycles_by_cluster(
         cl_cycles = cycles[mask]
         color = CLUSTER_COLORS[int(cl) % len(CLUSTER_COLORS)]
 
-        with np.errstate(all='ignore'):
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", RuntimeWarning)
             mean_cycle = np.nanmean(cl_cycles, axis=0)
             std_cycle = np.nanstd(cl_cycles, axis=0)
+
+        # Skip clusters with no valid seasonal information
+        if np.all(np.isnan(mean_cycle)):
+            continue
 
         ax.plot(periods, mean_cycle, color=color, linewidth=1.0,
                 label=f"Cluster {cl} (n={mask.sum()})")
